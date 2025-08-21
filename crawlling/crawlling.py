@@ -12,8 +12,10 @@ CHO_TABLE = [
 ]
 
 # === 설정: 파일 경로 ===
-BASE_DIR = r'C:\Workspace\crawlling'   # 윈도우 경로는 r'' 또는 \\ 사용
+BASE_DIR = r'C:\Workspace'   # 윈도우 경로는 r'' 또는 \\ 사용
+OUTPUT_DIR = r'C:\Workspace\output'   # 윈도우 경로는 r'' 또는 \\ 사용
 STOCKS_FILE = os.path.join(BASE_DIR, 'stocks.txt')
+ALL_OPTION = '전체'
 
 def get_chosung(text):
     result = ''
@@ -45,6 +47,8 @@ def load_stock_dict_from_file(path):
                 code, name = line.split(':', 1)
             elif ',' in line:  # 콜론 대신 쉼표를 쓴 경우도 느슨히 허용
                 code, name = line.split(',', 1)
+            elif ' ' in line:  # 콜론 대신 공백을 쓴 경우도 느슨히 허용
+                code, name = line.split(' ', 1)
             else:
                 continue
             code = code.strip()
@@ -55,16 +59,20 @@ def load_stock_dict_from_file(path):
     return d
 
 def fetch_stock_data(stock_code, stock_name, page_count):
+        # 전체 옵션일 경우 함수 탈출(ALL텍스트 파일이 생기는 현상 방지)
+    if stock_code == 'ALL':
+        return
     # 저장 디렉토리 준비
-    os.makedirs(BASE_DIR, exist_ok=True)
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    save_dir = BASE_DIR
-    hwv_open_path = os.path.join(save_dir, f'{stock_code} 시가.txt')
-    hwv_close_path = os.path.join(save_dir, f'{stock_code} 종가.txt')
+    save_dir = OUTPUT_DIR
+    open_path = os.path.join(save_dir, f'{stock_code}o.txt')
+    close_path = os.path.join(save_dir, f'{stock_code}c.txt')
 
     # 시가 저장
-    with open(hwv_open_path, 'w', encoding='utf-8-sig') as f:
-        f.write(stock_name + "\n")  # 첫 줄에 종목명 삽입
+    with open(open_path, 'w', encoding='utf-8-sig') as f:
+        if stock_code != 'ALL':
+            f.write(stock_name + "\n")  # 첫 줄에 종목명 삽입
         for page in range(1, page_count + 1):
             url = f'https://finance.naver.com/item/sise_day.naver?code={stock_code}&page={page}'
             headers = {
@@ -84,8 +92,9 @@ def fetch_stock_data(stock_code, stock_name, page_count):
                         f.write(f"{open_price}\n")
 
     # 종가 저장
-    with open(hwv_close_path, 'w', encoding='utf-8-sig') as f:
-        f.write(stock_name + "\n")  # 첫 줄에 종목명 삽입
+    with open(close_path, 'w', encoding='utf-8-sig') as f:
+        if stock_code != 'ALL':
+            f.write(stock_name + "\n")  # 첫 줄에 종목명 삽입
         for page in range(1, page_count + 1):
             url = f'https://finance.naver.com/item/sise_day.naver?code={stock_code}&page={page}'
             headers = {
@@ -103,9 +112,15 @@ def fetch_stock_data(stock_code, stock_name, page_count):
                     close_price = cols[1].text.strip()  # 종가 (2번째 칸)
                     if close_price:
                         f.write(f"{close_price}\n")
-
-    messagebox.showinfo("✅ 완료", f"[{stock_name}] {page_count}0일차 크롤링 완료!\n\n"
-                                   f"시가: {hwv_open_path}\n종가: {hwv_close_path}")
+                        
+    # if stock_name == ALL_OPTION:
+    #     # 전체 종목 처리
+    #     for code, name in stock_dict.items():
+    #         fetch_stock_data(code, name, int(pages))
+    #     messagebox.showinfo("✅ 전체 완료", f"모든 종목 크롤링이 완료되었습니다.")
+    # else:
+    #     messagebox.showinfo("✅ 완료", f"[{stock_name}] {page_count}0일차 크롤링 완료!\n\n"
+    #                                 f"시가: {open_path}\n종가: {close_path}")
 
 def start_gui():
     root = tk.Tk()
@@ -125,18 +140,30 @@ def start_gui():
 
     # 역매핑 (종목명 → 코드)
     name_to_code = {v: k for k, v in stock_dict.items()}
+    name_to_code[ALL_OPTION] = 'ALL'
+    all_names = [ALL_OPTION] + list(stock_dict.values())  # 전체가 맨 앞에 나오도록
 
     def on_submit():
         stock_name = stock_var.get().strip()
         stock_code = name_to_code.get(stock_name)
         pages = page_entry.get().strip()
-
         if not stock_code:
             messagebox.showerror("❌ 입력 오류", "종목명을 선택(또는 정확히 입력)하세요.")
             return
         if not (pages.isdigit() and int(pages) > 0):
             messagebox.showerror("❌ 입력 오류", "페이지 수는 1 이상의 숫자여야 합니다.")
             return
+                
+        if stock_name == ALL_OPTION:
+            # 전체 종목 처리
+            for code, name in stock_dict.items():
+                fetch_stock_data(code, name, int(pages))
+            messagebox.showinfo("✅ 전체 완료", f"모든 종목 {int(pages)}0일차 크롤링이 완료되었습니다.")
+        else:
+            stock_code = name_to_code.get(stock_name)
+            messagebox.showinfo("✅ 완료", f"[{stock_name}] {int(pages)}0일차 크롤링이 완료되었습니다")
+    
+
 
         fetch_stock_data(stock_code, stock_name, int(pages))
 
@@ -160,7 +187,7 @@ def start_gui():
     stock_var = tk.StringVar()
     stock_combo = ttk.Combobox(root, textvariable=stock_var,
                                values=list(stock_dict.values()), width=30)
-    stock_combo.set('')  # 기본 선택 없음
+    stock_combo.set(ALL_OPTION)  # 기본값=전체
     stock_combo.pack(pady=5)
     stock_combo.bind('<KeyRelease>', on_keyrelease)
 
