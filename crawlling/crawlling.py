@@ -12,8 +12,7 @@ CHO_TABLE = [
 ]
 
 # === 설정: 파일 경로 ===
-BASE_DIR = r'C:\Workspace'   # 윈도우 경로는 r'' 또는 \\ 사용
-OUTPUT_DIR = r'C:\Workspace\output'   # 윈도우 경로는 r'' 또는 \\ 사용
+BASE_DIR = r'C:\Workspace\output'   # 윈도우 경로는 r'' 또는 \\ 사용
 STOCKS_FILE = os.path.join(BASE_DIR, 'stocks.txt')
 ALL_OPTION = '전체'
 
@@ -37,7 +36,7 @@ def load_stock_dict_from_file(path):
     if not os.path.exists(path):
         return d
 
-    with open(path, encoding='utf-8') as f:
+    with open(path, encoding='utf-8-sig') as f:
         for raw in f:
             line = raw.strip()
             if not line or line.startswith('#'):
@@ -63,14 +62,14 @@ def fetch_stock_data(stock_code, stock_name, page_count):
     if stock_code == 'ALL':
         return
     # 저장 디렉토리 준비
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    os.makedirs(BASE_DIR, exist_ok=True)
 
-    save_dir = OUTPUT_DIR
+    save_dir = BASE_DIR
     open_path = os.path.join(save_dir, f'{stock_code}o.txt')
     close_path = os.path.join(save_dir, f'{stock_code}c.txt')
 
     # 시가 저장
-    with open(open_path, 'w', encoding='utf-8-sig') as f:
+    with open(open_path, 'w', encoding='euc-kr') as f:
         if stock_code != 'ALL':
             f.write(stock_name + "\n")  # 첫 줄에 종목명 삽입
         for page in range(1, page_count + 1):
@@ -92,7 +91,7 @@ def fetch_stock_data(stock_code, stock_name, page_count):
                         f.write(f"{open_price}\n")
 
     # 종가 저장
-    with open(close_path, 'w', encoding='utf-8-sig') as f:
+    with open(close_path, 'w', encoding='euc-kr') as f:
         if stock_code != 'ALL':
             f.write(stock_name + "\n")  # 첫 줄에 종목명 삽입
         for page in range(1, page_count + 1):
